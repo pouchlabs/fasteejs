@@ -1,0 +1,25 @@
+{
+  "name": "fasteejs-monorepo",
+  "version": "1.0.0",
+  "description": "Blazingly fast express alternative",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pouchlabs/fasteejs.git"
+  },
+  "workspaces":["apps/*","packages/*"],
+  "keywords": [
+    "api",
+    "backend",
+    "http",
+    "websocket",
+    "ws",
+    "rest",
+    "nodejs"
+  ],
+  "author": "pouchlabs",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pouchlabs/fasteejs/issues"
+  },
+  "homepage": "https://fasteejs.top"
+}
