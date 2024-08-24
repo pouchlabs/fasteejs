@@ -20,7 +20,7 @@ Fast, Lightweight,Built-in zod schema validator..
  # usage
  
  ```js
-   import {Fastee} from "@pouchlab/fasteejs"
+   import {Fastee} from "fasteejs"
 
    const app = new Fastee(); //uses defaults
    const app1 = new Fastee({port:4000,delay:30000}) //pass port and shutdown delay
