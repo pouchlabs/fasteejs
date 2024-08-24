@@ -1,5 +1,5 @@
 {
-  "name": "fasteejs-monorepo",
+  "name": "fasteejs",
   "version": "1.0.0",
   "description": "Blazingly fast express alternative",
   "repository": {
