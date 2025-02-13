@@ -1,5 +1,5 @@
 import debug from 'debug';debug('fastee-graceful-shutdown');
-import  http from 'http';
+import  http from 'node:http';
 
 /**
  * Gracefully shuts down `server` when the process receives

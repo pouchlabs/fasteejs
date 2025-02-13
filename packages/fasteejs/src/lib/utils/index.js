@@ -1,6 +1,6 @@
-import {join} from "path"; 
-import fs from "fs";
-import crypto from "crypto";
+import {join} from "node:path"; 
+import fs from "node:fs";
+import crypto from "node:crypto";
 import colors from "kleur";  
 /*
 utill to gen secret

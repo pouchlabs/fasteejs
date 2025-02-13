@@ -1,6 +1,6 @@
-import  http from 'http';
+import  http from 'node:http';
 import  Router from './router.js';
-import { parse } from 'querystring';
+import { parse } from 'node:querystring';
 import parser from './perser.js';
 import detect from 'detect-port';
 import { logSuccess,logError} from '../utils/index.js';

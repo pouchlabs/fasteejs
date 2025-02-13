@@ -3,6 +3,10 @@ import { parse, inject } from './regex.js';
 import { LoadGlobalWares } from './middlewares.js';
 import { EdgeRequest } from './request.js';
 import EdgeResponse  from './response.js';
+import { join, normalize, resolve } from "node:path";
+
+import { totalist } from "totalist/sync";
+import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
 //import {join} from "path"
   export  function parser(req) {
     let url = req.url;
@@ -221,6 +225,7 @@ import EdgeResponse  from './response.js';
       this.routes=[];
       this.wares=[];
       this.bwares=[];
+      this.staticPaths=[];
       this.apps=[];
       this.parse=parser
       /**
@@ -256,18 +261,22 @@ import EdgeResponse  from './response.js';
          let req;
          let res = new EdgeResponse();
          try {
+          
           let handler = this.find(request.method,new URL(request.url).pathname);
           req= new EdgeRequest(request);
          
           req.env=env;
           req.ctx=ctx;
+          this._request=req;
+         
           if(handler)req.params=handler.params || {};
            //call global wares
        let ware= await LoadGlobalWares(this,req);
        if(ware instanceof Response){
         return  ware
        }
-      
+      //call static
+      this.#LoadStaticPaths(req,res)
    
         if(handler){
        for(let b of this.bwares){
@@ -291,6 +300,7 @@ import EdgeResponse  from './response.js';
     
          
          } catch (error) {
+          console.log(error)
           return this.onError(error,req,res)
          }
       
@@ -345,7 +355,7 @@ import EdgeResponse  from './response.js';
   find(method="",path="") {
     let handlers=this.routes;
     let handler;
-    let l =handlers.length;
+    let l = handlers.length;
       for (var i = 0; i < l; i++) {
        let h = this.routes[i];
        if(h.pasedurl.pattern.test(path) && h.method === method)
@@ -400,8 +410,180 @@ import EdgeResponse  from './response.js';
     
     return this.use(base,this)
   }
+  /**
+   * serve static folder
+   * @param {string} folder -folder to serve, default .
+   * @param {object} opts - options
+   */
+  #Servestatic(dir,opts){
+    
+    dir = resolve(dir || ".");
+    
+      let isNotFound = opts.onNoMatch || this.onNotFound;
+      let setHeaders = opts.setHeaders || false;
+    
+      let extensions = opts.extensions || ["html", "htm"];
+      let gzips = opts.gzip && extensions.map(x => `${x}.gz`).concat("gz");
+      let brots = opts.brotli && extensions.map(x => `${x}.br`).concat("br");
+    
+      /** @type {import('../sirv').SirvFiles} */
+      const FILES = {};
+    
+      // let fallback = '/';
+      let isEtag = !!opts.etag;
+      // let isSPA = !!opts.single;
+    
+      // if (typeof opts.single === 'string') {
+      //     let idx = opts.single.lastIndexOf('.');
+      //     fallback += !!~idx ? opts.single.substring(0, idx) : opts.single;
+      // }
+    
+      let ignores = [];
+      if (opts.ignores !== false) {
+        ignores.push(/[/]([A-Za-z\s\d~$._-]+\.\w+){1,}$/); // any extn
+        if (opts.dotfiles) ignores.push(/\/\.\w/);
+        else ignores.push(/\/\.well-known/);
+        [].concat(opts.ignores || []).forEach(x => {
+          ignores.push(new RegExp(x, "i"));
+        });
+      }
+    
+      let cc = opts.maxAge != null && `public,max-age=${opts.maxAge}`;
+      if (cc && opts.immutable) cc += ",immutable";
+      else if (cc && opts.maxAge === 0) cc += ",must-revalidate";
+    
+      if (!opts.dev) {
+        totalist(dir, (name, abs, stats) => {
+          if (/\.well-known[\\+\/]/.test(name)) {
+          } // keep
+          else if (!opts.dotfiles && /(^\.|[\\+|\/+]\.)/.test(name)) return;
+    
+          let headers = toHeaders(name, stats, isEtag);
+          if (cc) headers.set("Cache-Control", cc);
+    
+          FILES["/" + name.normalize().replace(/\\+/g, "/")] = { abs, stats, headers };
+        });
+      }
+    
+      /**
+       * @callback lookup
+       * @return { import('../sirv').SirvData }
+       */
+      /**@type {lookup} */
+      let lookup = opts.dev ? viaLocal.bind(0, dir, isEtag) : viaCache.bind(0, FILES);
+    
+      /**
+       * @param {Request} req
+       */
+      return function (req) {
+        let extns = [""];
+        let pathname = new URL(req.url).pathname;
+        let val = req.headers.get("accept-encoding") || "";
+        if (gzips && val.includes("gzip")) extns.unshift(...gzips);
+        if (brots && /(br|brotli)/i.test(val)) extns.unshift(...brots);
+        extns.push(...extensions); // [...br, ...gz, orig, ...exts]
+    
+        if (pathname.indexOf("%") !== -1) {
+          try {
+            pathname = decodeURIComponent(pathname);
+          } catch (err) {
+            /* malform uri */
+          }
+        }
+    
+        // tmp = lookup(pathname, extns)
+        // if (!tmp) {
+        //     if (isSPA && !isMatch(pathname, ignores)) {
+        //         tmp = lookup(fallback, extns)
+        //     }
+        // }
+        let data = lookup(pathname, extns);
+        //  || isSPA && !isMatch(pathname, ignores) && lookup(fallback, extns);
+    
+        if (!data) return isNotFound(req);
+    
+        if (isEtag && req.headers.get("if-none-match") === data.headers.get("ETag")) {
+          return new Response(null, { status: 304 });
+        }
+    
+        data = {
+          ...data,
+          // clone a new headers to prevent the cached one getting modified
+          headers: new Headers(data.headers),
+        };
+    
+        if (gzips || brots) {
+          data.headers.append("Vary", "Accept-Encoding");
+        }
+    
+        if (setHeaders) {
+          data.headers = setHeaders(data.headers, pathname, data.stats);
+        }
+        return send(req, data);
+      };
+  }
+  /**
+   * serve static folder (works on bun and deno only )
+   * @param {string} path -path to append folder.
+   * @param {string} folder -folder to serve, default .
+   * 
+   * @param {object} opts - options i.e {  
+  etag: true, 
+  gzip: true,  
+  brotli: true,  
 
+}
+   */
+ useStatic(path,folder,opts){
+ 
+  if(typeof path === "string" && typeof folder === "string" && opts && checktype(opts) === checktype({})){
+    if(path.length === 0 || folder.length === 0 )throw new Error("path and folder must not be empty")
+    //bware like
+        //global
+        path = path.trim()
+      if(path === "/"){
+        this.use(this.#Servestatic(folder,opts))
+        return
+      }
+    if(path.startsWith("/") && path.endsWith("/")){
+      path = path.trim()
+    
+        //bware type
+        this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
+      
+     
+ }if(path.startsWith("/") && !path.endsWith("/")){
+     path = path.trim()+"/";
+     this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
+ }
+ //
+ if(!path.startsWith("/") && path.endsWith("/")){
+  path = "/"+path.trim();
+   this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
+    
+ }//
+ if(!path.startsWith("/") && !path.endsWith("/")){
+  path = "/"+path.trim()+"/";
+   this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
+    
+ }
+
+  }else if(typeof path === "string" && checktype(folder) === checktype({})){
+    if(path.length === 0)throw new Error("folder must not be empty")
+    //only path and folder
+      //global ware
+     this.use(this.#Servestatic(path,folder))
+  }
+ }
+  #LoadStaticPaths(req,res){
+    
+  for(let s of this.staticPaths){
   
+    if(req.path.slice(0,s.path.length) === s.path){
+      return s.fn(req,res)
+    }
+  }
+  }
   }
  
 

@@ -1,14 +1,28 @@
 import Edge,{EdgeResponse} from "../../packages/edge/src/lib/index.js"; 
-const app = new Edge() 
-  
- app.get("/",async (req,res)=>{
-  const foo = Bun.file("/Users/Daniel/Desktop/codding.mp4"); 
 
-//await foo.text(); // contents as a string
-    
-  return {type:"stream",data:foo.slice(0,Infinity,"video/mp4"),headers:{"content-type":"video/mp4"}}     
-  //return new Response(foo) 
- })   
+import { cpus } from 'node:os';
+import cluster from 'node:cluster';
+import { createServer } from 'node:http';
+import { join } from "node:path";
+let port = process.env.PORT || 4000   
+const server = createServer();
+const app = new Edge()
+function cls(app, num) {
+	if (cluster.isPrimary) {
+		return {
+			listen(PORT) {
+				let cpu = cpus().length;
+				let max = Math.min(num || cpu, cpu);
+				while (max--) {cluster.fork({ PORT })
+        console.log("kk") 
+        };
+			}
+		};
+	}
+
+	return typeof app.listen === 'function' ? app : createServer(app);
+}
+ 
 app.get("/users",async (req: any,res: any)=>{   
      const re = new EdgeResponse();
 
@@ -80,19 +94,21 @@ app.get("/users",async (req: any,res: any)=>{
         </svg>
       </a>
     </div>
-  </nav>
+  </nav>   
 </footer>
 
 <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet" type="text/css" />
 <script src="https://cdn.tailwindcss.com"></script>
 `) 
-})    
+}) 
+  
+app.useStatic("api",join("c:/Users/Daniel/Desktop/vidz"),{  
+  etag: true,   
+  gzip: true, 
+  brotli: true,  
 
-
-let api = app.Router("api");
-api.get("/",async(req,res)=>{
-return res.json({msg:"test api"})
-})
+})  
+ console.log(app) 
 export default app 
      
      

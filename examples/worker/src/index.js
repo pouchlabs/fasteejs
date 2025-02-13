@@ -1,6 +1,6 @@
 
 import Edge from "../../../packages/edge/src/lib/index.js";
-
+import { join } from "node:path";
 const app = new Edge()
  app.use((req)=>{
   console.log(req.body)  
@@ -108,6 +108,10 @@ app.get("/",(req,res)=>{
  })
 
 console.log(app)//app.wares.forEach(async (w,i)=>console.log(await w(),i)))
-app.port=2000 
-app.fetch 
+app.useStatic(join("c:/Users/Daniel/Desktop/vidz"),{  
+  etag: true, 
+  gzip: true,  
+  brotli: true,  
+
+})
 export default app 

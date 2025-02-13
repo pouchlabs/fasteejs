@@ -1,7 +1,7 @@
 import bodyParser from "body-parser";
 //import multer from 'multer';
 import { checktype,logError } from "../utils/index.js";
-import { STATUS_CODES } from 'http';
+import { STATUS_CODES } from 'node:http';
 import colors from "kleur";
 import Ip from "../core/ip.js";
 import { DEV } from "esm-env";
