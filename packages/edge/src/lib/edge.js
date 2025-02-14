@@ -1,9 +1,9 @@
 import { checktype } from './utils.js';
-import { parse, inject } from './regex.js';
+import { parse} from './regex.js';
 import { LoadGlobalWares } from './middlewares.js';
 import { EdgeRequest } from './request.js';
 import EdgeResponse  from './response.js';
-import { join, normalize, resolve } from "node:path";
+import {resolve} from "node:path";
 
 import { totalist } from "totalist/sync";
 import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
@@ -225,7 +225,6 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
       this.routes=[];
       this.wares=[];
       this.bwares=[];
-      this.staticPaths=[];
       this.apps=[];
       this.parse=parser
       /**
@@ -275,16 +274,18 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
        if(ware instanceof Response){
         return  ware
        }
-      //call static
-      this.#LoadStaticPaths(req,res)
-   
-        if(handler){
+       //bwares
        for(let b of this.bwares){
-            if(b.base === new URL(request.url).pathname){
-              let bres= await b.fn(req,res);
-              if(bres && bres instanceof Response)return bres
-            }
-          }
+        if(b.base === URL(request.url).pathname.slice(0,b.base.length)){
+          req.base=URL(request.url).pathname.slice(b.base.length,Infinity)
+          let bres= await b.fn(req,res);
+          if(bres && bres instanceof Response)return bres
+        }
+      }
+    
+      //call route handler
+        if(handler){
+      
 
       
           let resp = await handler.fn(req, res);
@@ -300,7 +301,6 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
     
          
          } catch (error) {
-          console.log(error)
           return this.onError(error,req,res)
          }
       
@@ -477,7 +477,13 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
        */
       return function (req) {
         let extns = [""];
-        let pathname = new URL(req.url).pathname;
+        let pathname;
+        if(req.base){
+          pathname= req.base
+        }else{
+         pathname= new URL(req.url).pathname;
+        }
+   
         let val = req.headers.get("accept-encoding") || "";
         if (gzips && val.includes("gzip")) extns.unshift(...gzips);
         if (brots && /(br|brotli)/i.test(val)) extns.unshift(...brots);
@@ -524,10 +530,10 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
   }
   /**
    * serve static folder (works on bun and deno only )
-   * @param {string} path -path to append folder.
-   * @param {string} folder -folder to serve, default .
+   * @param {string} [path?] -path to append folder,optional.
+   * @param {string} folder -folder to serve, default ,must.
    * 
-   * @param {object} opts - options i.e {  
+   * @param {object} opts - options ,must i.e {  
   etag: true, 
   gzip: true,  
   brotli: true,  
@@ -539,34 +545,8 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
   if(typeof path === "string" && typeof folder === "string" && opts && checktype(opts) === checktype({})){
     if(path.length === 0 || folder.length === 0 )throw new Error("path and folder must not be empty")
     //bware like
-        //global
-        path = path.trim()
-      if(path === "/"){
-        this.use(this.#Servestatic(folder,opts))
-        return
-      }
-    if(path.startsWith("/") && path.endsWith("/")){
-      path = path.trim()
-    
-        //bware type
-        this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
-      
-     
- }if(path.startsWith("/") && !path.endsWith("/")){
-     path = path.trim()+"/";
-     this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
- }
- //
- if(!path.startsWith("/") && path.endsWith("/")){
-  path = "/"+path.trim();
-   this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
-    
- }//
- if(!path.startsWith("/") && !path.endsWith("/")){
-  path = "/"+path.trim()+"/";
-   this.staticPaths.push({path,fn:this.#Servestatic(folder,opts)})
-    
- }
+      path=path.trim()
+      this.use(path,this.#Servestatic(folder,opts))
 
   }else if(typeof path === "string" && checktype(folder) === checktype({})){
     if(path.length === 0)throw new Error("folder must not be empty")
@@ -575,15 +555,6 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
      this.use(this.#Servestatic(path,folder))
   }
  }
-  #LoadStaticPaths(req,res){
-    
-  for(let s of this.staticPaths){
-  
-    if(req.path.slice(0,s.path.length) === s.path){
-      return s.fn(req,res)
-    }
-  }
-  }
   }
  
 

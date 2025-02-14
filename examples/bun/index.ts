@@ -57,7 +57,7 @@ app.get("/users",async (req: any,res: any)=>{
     <a class="link link-hover">Jobs</a>
     <a class="link link-hover">Press kit</a>
   </nav>
-  <nav>
+  <nav>  
     <h6 class="footer-title">Social</h6>
     <div class="grid grid-flow-col gap-4">
       <a>
@@ -101,13 +101,16 @@ app.get("/users",async (req: any,res: any)=>{
 <script src="https://cdn.tailwindcss.com"></script>
 `) 
 }) 
-  
-app.useStatic("api",join("c:/Users/Daniel/Desktop/vidz"),{  
-  etag: true,   
-  gzip: true, 
+  app.use("/asset/",()=>{
+    return new Response("hi")
+  }) 
+app.useStatic(join("c:/Users/Daniel/Desktop/vidz"),{  
+  etag: true,
+  gzip: true,
   brotli: true,  
 
-})  
+})   
+
  console.log(app) 
 export default app 
      

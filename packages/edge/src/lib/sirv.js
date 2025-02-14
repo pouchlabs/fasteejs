@@ -4,7 +4,6 @@ import { join, normalize, resolve } from "node:path";
 import { mimes, lookup as getExt } from "mrmime";
 import { totalist } from "totalist/sync";
 import exmimes from "./mime.js";
-import { BROWSER, DEV, NODE } from 'esm-env'; 
 
 // function isMatch(uri, arr) {
 //     for (let i = 0; i < arr.length; i++) {
@@ -56,12 +55,7 @@ export function viaLocal(dir, isEtag, uri, extns) {
   }
 }
 
-function is404(req) {
-  return new Response(null, {
-    status: 404,
-    statusText: "404",
-  });
-}
+
 /**
  *
  * @param {Request} req
@@ -219,109 +213,3 @@ for (const mime in exmimes) {
  * @param {string} dir
  * @return {import('../sirv').RequestHandler}
  */
-export default function (req,res,dir, opts = {}) {
-  dir = resolve(dir || ".");
-
-  let isNotFound = opts.onNoMatch || this.on;
-  let setHeaders = opts.setHeaders || false;
-
-  let extensions = opts.extensions || ["html", "htm"];
-  let gzips = opts.gzip && extensions.map(x => `${x}.gz`).concat("gz");
-  let brots = opts.brotli && extensions.map(x => `${x}.br`).concat("br");
-
-  /** @type {import('../sirv').SirvFiles} */
-  const FILES = {};
-
-  // let fallback = '/';
-  let isEtag = !!opts.etag;
-  // let isSPA = !!opts.single;
-
-  // if (typeof opts.single === 'string') {
-  //     let idx = opts.single.lastIndexOf('.');
-  //     fallback += !!~idx ? opts.single.substring(0, idx) : opts.single;
-  // }
-
-  let ignores = [];
-  if (opts.ignores !== false) {
-    ignores.push(/[/]([A-Za-z\s\d~$._-]+\.\w+){1,}$/); // any extn
-    if (opts.dotfiles) ignores.push(/\/\.\w/);
-    else ignores.push(/\/\.well-known/);
-    [].concat(opts.ignores || []).forEach(x => {
-      ignores.push(new RegExp(x, "i"));
-    });
-  }
-
-  let cc = opts.maxAge != null && `public,max-age=${opts.maxAge}`;
-  if (cc && opts.immutable) cc += ",immutable";
-  else if (cc && opts.maxAge === 0) cc += ",must-revalidate";
-
-  if (!opts.dev) {
-    totalist(dir, (name, abs, stats) => {
-      if (/\.well-known[\\+\/]/.test(name)) {
-      } // keep
-      else if (!opts.dotfiles && /(^\.|[\\+|\/+]\.)/.test(name)) return;
-
-      let headers = toHeaders(name, stats, isEtag);
-      if (cc) headers.set("Cache-Control", cc);
-
-      FILES["/" + name.normalize().replace(/\\+/g, "/")] = { abs, stats, headers };
-    });
-  }
-
-  /**
-   * @callback lookup
-   * @return { import('../sirv').SirvData }
-   */
-  /**@type {lookup} */
-  let lookup = opts.dev ? viaLocal.bind(0, dir, isEtag) : viaCache.bind(0, FILES);
-
-  /**
-   * @param {Request} req
-   */
-  return function (req, next) {
-    let extns = [""];
-    let pathname = new URL(req.url).pathname;
-    let val = req.headers.get("accept-encoding") || "";
-    if (gzips && val.includes("gzip")) extns.unshift(...gzips);
-    if (brots && /(br|brotli)/i.test(val)) extns.unshift(...brots);
-    extns.push(...extensions); // [...br, ...gz, orig, ...exts]
-
-    if (pathname.indexOf("%") !== -1) {
-      try {
-        pathname = decodeURIComponent(pathname);
-      } catch (err) {
-        /* malform uri */
-      }
-    }
-
-    // tmp = lookup(pathname, extns)
-    // if (!tmp) {
-    //     if (isSPA && !isMatch(pathname, ignores)) {
-    //         tmp = lookup(fallback, extns)
-    //     }
-    // }
-    let data = lookup(pathname, extns);
-    //  || isSPA && !isMatch(pathname, ignores) && lookup(fallback, extns);
-
-    if (!data) return next ? next() : isNotFound(req);
-
-    if (isEtag && req.headers.get("if-none-match") === data.headers.get("ETag")) {
-      return new Response(null, { status: 304 });
-    }
-
-    data = {
-      ...data,
-      // clone a new headers to prevent the cached one getting modified
-      headers: new Headers(data.headers),
-    };
-
-    if (gzips || brots) {
-      data.headers.append("Vary", "Accept-Encoding");
-    }
-
-    if (setHeaders) {
-      data.headers = setHeaders(data.headers, pathname, data.stats);
-    }
-    return send(req, data);
-  };
-}
