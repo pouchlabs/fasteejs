@@ -4,6 +4,7 @@
  * @param {object} request - The incoming request object.
  * @returns {object}
  */
+
 export class EdgeRequest{
     #request;
  constructor(request){

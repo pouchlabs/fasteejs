@@ -260,7 +260,7 @@ export default class EdgeResponse{
          status:206,
          headers:{
             "content-type":type || "application/octet-stream",
-            "X-Content-Type-Options":"nosniff"
+         
          }
    
       });
@@ -272,7 +272,7 @@ export default class EdgeResponse{
    }else{
       const response = new Response(data,
          {
-            status:200,
+            status:206,
             headers:{
                "content-type":type || "application/octet-stream",
                "X-Content-Type-Options":"nosniff"

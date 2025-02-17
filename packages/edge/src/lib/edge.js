@@ -7,6 +7,8 @@ import {resolve} from "node:path";
 
 import { totalist } from "totalist/sync";
 import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
+import { upgradeDenoWs } from './deno/ws.js';
+import { roomEvent,Room } from './room.js';
 //import {join} from "path"
   export  function parser(req) {
     let url = req.url;
@@ -151,7 +153,7 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
                           yield JSON.stringify(data);
                           },
                         },{
-                          status:status_code,
+                          status:206,
                           ...rest
 
                         });
@@ -180,7 +182,7 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
                     }else{
                         const response = new Response(data,
                           {
-                              status:200,
+                              status:206,
                               ...rest
                         
                           }
@@ -227,6 +229,7 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
       this.bwares=[];
       this.apps=[];
       this.parse=parser
+      this.Room = Room
       /**
        * no match handler
        * @param {object} req 
@@ -266,8 +269,7 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
          
           req.env=env;
           req.ctx=ctx;
-          this._request=req;
-         
+        
           if(handler)req.params=handler.params || {};
            //call global wares
        let ware= await LoadGlobalWares(this,req);
@@ -284,8 +286,43 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
       }
     
       //call route handler
-        if(handler){
-      
+        if(handler){ 
+         
+          //upgrade bun websocket
+           if(env && env.upgrade){
+            if (env.upgrade(request))return;
+            roomEvent.emit("req",{req}) 
+          
+            }//
+
+         //deno ws
+         if(globalThis.Deno){
+          if (req.headers.get("upgrade") === "websocket") {
+          const { socket, response } = Deno.upgradeWebSocket(request);
+        
+          roomEvent.emit("ws",{ws:socket})
+          
+          roomEvent.emit("req",{req}) 
+          
+          return response
+         } }
+          //cloudflare ws
+          if(ctx){
+            const upgradeHeader = request.headers.get('Upgrade');
+            if (upgradeHeader || upgradeHeader === 'websocket') {
+             
+          
+            const webSocketPair = new WebSocketPair();
+            const [client, server] = Object.values(webSocketPair);
+              roomEvent.emit("ws",{ws:server})
+              roomEvent.emit("req",{req}) 
+          
+            return new Response(null, {
+              status: 101,
+              webSocket: client,
+            });
+          }
+          }
 
       
           let resp = await handler.fn(req, res);
@@ -301,6 +338,7 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
     
          
          } catch (error) {
+          console.log(error)
           return this.onError(error,req,res)
          }
       
@@ -530,10 +568,10 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
   }
   /**
    * serve static folder (works on bun and deno only )
-   * @param {string} [path?] -path to append folder,optional.
+   * @param {string} path -path to append folder,optional.
    * @param {string} folder -folder to serve, default ,must.
    * 
-   * @param {object} opts - options ,must i.e {  
+   * @param {object} [opts?] - options ,must i.e {  
   etag: true, 
   gzip: true,  
   brotli: true,  
@@ -555,6 +593,22 @@ import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
      this.use(this.#Servestatic(path,folder))
   }
  }
+ websocket={
+ 
+    message(ws, message) {
+      roomEvent.emit("message",message)
+    }, // a message is received
+    open(ws) {
+      roomEvent.emit("ws",{ws})
+      
+    },
+    close(ws, code, message) {
+      roomEvent.emit("on_close",ws)
+    }, // a socket is closed
+    drain(ws) {}, // the socket is ready to receive more data
+  
+
+}
   }
  
 

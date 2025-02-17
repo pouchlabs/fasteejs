@@ -1,3 +1,12 @@
+import { nanoid } from "nanoid";
+
+/**
+ * generates uuid
+ * @param {Number} num 
+ */
+export function genUuid(num=16){
+   return nanoid(num)
+}
 export var checktype = (function(global) {
     var cache = {}; 
     return function(obj) {

@@ -87,6 +87,7 @@
 		"esm-env": "^1.2.2",
 		"eventemitter3": "^5.0.1",
 		"mrmime": "^2.0.0",
+		"nanoid": "^5.1.0",
 		"totalist": "^3.0.1"
 	}
 }
