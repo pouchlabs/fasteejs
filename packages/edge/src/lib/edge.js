@@ -1,4 +1,4 @@
-import { checktype } from './utils.js';
+import { checktype,genUuid } from './utils.js';
 import { parse} from './regex.js';
 import { LoadGlobalWares } from './middlewares.js';
 import { EdgeRequest } from './request.js';
@@ -7,7 +7,6 @@ import {resolve} from "node:path";
 
 import { totalist } from "totalist/sync";
 import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
-import { upgradeDenoWs } from './deno/ws.js';
 import { roomEvent,Room } from './room.js';
 //import {join} from "path"
   export  function parser(req) {
@@ -269,7 +268,7 @@ import { roomEvent,Room } from './room.js';
          
           req.env=env;
           req.ctx=ctx;
-        
+           roomEvent.emit("req_main",req)
           if(handler)req.params=handler.params || {};
            //call global wares
        let ware= await LoadGlobalWares(this,req);
@@ -284,14 +283,18 @@ import { roomEvent,Room } from './room.js';
           if(bres && bres instanceof Response)return bres
         }
       }
-    
-      //call route handler
-        if(handler){ 
-         
+
+      
           //upgrade bun websocket
-           if(env && env.upgrade){
-            if (env.upgrade(request))return;
-            roomEvent.emit("req",{req}) 
+          
+          if(env && env.upgrade){
+            if (env.upgrade(request)){
+              let re = new EdgeRequest(request);
+              roomEvent.emit("req",re) 
+              return
+            }
+
+            
           
             }//
 
@@ -299,10 +302,26 @@ import { roomEvent,Room } from './room.js';
          if(globalThis.Deno){
           if (req.headers.get("upgrade") === "websocket") {
           const { socket, response } = Deno.upgradeWebSocket(request);
-        
-          roomEvent.emit("ws",{ws:socket})
+          let re = new EdgeRequest(request);
+          roomEvent.emit("req",re) 
+         
+              //open
+              setTimeout(()=>{
+                roomEvent.emit("ws",{ws:socket})
+                },1)
+            
+              //message
+              socket.addEventListener("message",(msg)=>{
+                roomEvent.emit("message",msg)
+              })
+              //close
+              socket.addEventListener("close",(ev)=>{
+                setTimeout(()=>{
+                roomEvent.emit("on_close",{ws:socket})
+                },20)
+              })
+  
           
-          roomEvent.emit("req",{req}) 
           
           return response
          } }
@@ -314,8 +333,31 @@ import { roomEvent,Room } from './room.js';
           
             const webSocketPair = new WebSocketPair();
             const [client, server] = Object.values(webSocketPair);
-              roomEvent.emit("ws",{ws:server})
-              roomEvent.emit("req",{req}) 
+            let re = new EdgeRequest(request);
+            roomEvent.emit("req",re) 
+          server.accept()
+      
+            //open
+            setTimeout(()=>{
+            roomEvent.emit("ws",{ws:server})
+            },1)
+          
+          server.addEventListener("open",(msg)=>{
+              console.log("opn")
+            })
+          
+            //message
+            server.addEventListener("message",(msg)=>{
+              roomEvent.emit("message",msg)
+            })
+            //close
+          server.addEventListener("close",(ev)=>{
+              setTimeout(()=>{
+              roomEvent.emit("on_close",{ws:server})
+              },20)
+            })
+        
+
           
             return new Response(null, {
               status: 101,
@@ -323,6 +365,10 @@ import { roomEvent,Room } from './room.js';
             });
           }
           }
+    
+      //call route handler
+        if(handler){ 
+         
 
       
           let resp = await handler.fn(req, res);
@@ -599,15 +645,41 @@ import { roomEvent,Room } from './room.js';
       roomEvent.emit("message",message)
     }, // a message is received
     open(ws) {
+    setTimeout(()=>{
       roomEvent.emit("ws",{ws})
-      
+    },20)
+    
     },
     close(ws, code, message) {
+      setTimeout(()=>{
       roomEvent.emit("on_close",ws)
+      },20)
     }, // a socket is closed
-    drain(ws) {}, // the socket is ready to receive more data
-  
+ 
 
+}
+/**
+ * listener for incoming websocket
+ * @param {Function} cb - callback
+ */
+onWebsocket(cb){
+  if(!cb || typeof cb !== "function")throw new  Error("cb required")
+     roomEvent.on("on_ws",(ws)=>{
+    cb(ws)
+    })    
+}
+/**
+ * listener for incoming request;
+ * @param {Function} cb - callback
+ */
+onRequest(cb){
+  if(!cb || typeof cb !== "function")throw new  Error("cb required")
+     roomEvent.on("req",(req)=>{
+    cb(req)
+    })    
+    roomEvent.on("req_main",(req)=>{
+      cb(req)
+      }) 
 }
   }
  

@@ -75,21 +75,24 @@ let ht = `<div class="hero bg-base-200 min-h-screen">
 <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet" type="text/css" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script type="module" >
-const socket = new WebSocket("ws://localhost:8787/");
+const socket = new WebSocket("ws://127.0.0.1:8787/bb?b=hhh");
 console.log(socket)
-socket.addEventListener("message", event => {  
-console.log(event.data);
-}) 
+
 // socket opened
 socket.addEventListener("open", event => {
-console.log(event)}); 
-</script> 
+console.log(event) 
+socket.send(JSON.stringify({event:"welcome",data:{msg:"mmmm"}})) 
+}); 
+socket.addEventListener("message", event => {  
+console.log(event);
+}) 
+</script>  
 `
  app.use((req)=>{
-  console.log(req.body)  
+  
  // return new Response("ware")
  })     
-app.get("/",(req,res)=>{  
+app.get("/bb",(req,res)=>{  
   //res.statusCode=200
   return res.html(ht)
  })      
@@ -169,6 +172,22 @@ app.get("/",(req,res)=>{
   <script src="https://cdn.tailwindcss.com"></script>
   `,200)
  })
+
+ let r2 = new app.Room("/bb");   
+ r2.onConnected((socket)=>{
+ console.log(socket)
+ })  
+ r2.emit("welcome",{msg:"m"},(so)=>{  
+  console.log(so)
+  
+})  
+
+r2.on("welcome",(s)=>{
+console.log(s.data)
+})
+
+
+     
 
   
 export default app 

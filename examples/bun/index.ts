@@ -96,15 +96,15 @@ function cls(app, num) {
 <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet" type="text/css" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script type="module" >
-  const socket = new WebSocket("ws://localhost:3000/chat");
+  const socket = new WebSocket("ws://localhost:3000/bb?ab=hi4"); 
 console.log(socket)
 socket.addEventListener("message", event => {  
   console.log(event.data);
-}) 
+})    
   // socket opened
 socket.addEventListener("open", event => {
 console.log(event)
-socket.send(3333) 
+socket.send(3333)  
 }); 
 </script>   
 `  
@@ -189,20 +189,24 @@ app.get("/users",async (req: any,res: any)=>{
   app.get("/chat",async (req,res)=>{
     
     return res.html(ht)
-  }) 
+  })  
     
-app.port=3000  
- let r = new app.Room(); 
- console.log(r)  
- r.broadcastAll("welcome",{msg:"m"},(socket)=>{
-    // console.log(socket)
- }) 
- r.on("ms",(res)=>{
-  console.log(res) 
+app.port=3000     
+
+
+ let r2 = new app.Room("/bb");   
+ r2.onConnected((socket)=>{
+   console.log(socket,"conn",r2.params)
  })  
- r.onDisconnected((so)=>{
-  
- })
+
+ r2.emit("welcome",{msg:"m"},(socket)=>{  
+   console.log(socket)
+ })   
+ r2.on("welcome",(da)=>{
+  console.log(da.data)
+ })   
+
+ 
 export default app 
      
      
