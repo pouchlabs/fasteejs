@@ -1,14 +1,13 @@
-import { checktype,genUuid } from './utils.js';
+import { checktype} from './utils.js';
 import { parse} from './regex.js';
 import { LoadGlobalWares } from './middlewares.js';
 import { EdgeRequest } from './request.js';
 import EdgeResponse  from './response.js';
 import {resolve} from "node:path";
-
 import { totalist } from "totalist/sync";
 import {send,viaCache,viaLocal,toHeaders} from "./sirv.js";
 import { roomEvent,Room } from './room.js';
-//import {join} from "path"
+
   export  function parser(req) {
     let url = req.url;
     if (url === void 0) return url;
@@ -277,8 +276,10 @@ import { roomEvent,Room } from './room.js';
        }
        //bwares
        for(let b of this.bwares){
-        if(b.base === URL(request.url).pathname.slice(0,b.base.length)){
-          req.base=URL(request.url).pathname.slice(b.base.length,Infinity)
+        if(b.base === new URL(request.url).pathname.slice(0,b.base.length)){
+          req.params = Object.fromEntries(new URL(request.url).searchParams);
+        
+          req.base=new URL(request.url).pathname.slice(b.base.length,Infinity)
           let bres= await b.fn(req,res);
           if(bres && bres instanceof Response)return bres
         }
@@ -306,19 +307,28 @@ import { roomEvent,Room } from './room.js';
           roomEvent.emit("req",re) 
          
               //open
-              setTimeout(()=>{
-                roomEvent.emit("ws",{ws:socket})
-                },1)
+      
+              socket.onopen=()=>{
+                setTimeout(()=>{
+                  roomEvent.emit("ws",{ws:socket})
+                },10)
+              }
+              
+             
             
               //message
               socket.addEventListener("message",(msg)=>{
                 roomEvent.emit("message",msg)
               })
-              //close
+              //close 
               socket.addEventListener("close",(ev)=>{
                 setTimeout(()=>{
                 roomEvent.emit("on_close",{ws:socket})
-                },20)
+                },10)
+              })
+              //error
+              socket.addEventListener("error",(ev)=>{
+                setTimeout(()=>roomEvent.emit("on_error",ev))
               })
   
           
@@ -340,12 +350,7 @@ import { roomEvent,Room } from './room.js';
             //open
             setTimeout(()=>{
             roomEvent.emit("ws",{ws:server})
-            },1)
-          
-          server.addEventListener("open",(msg)=>{
-              console.log("opn")
-            })
-          
+            },10)
             //message
             server.addEventListener("message",(msg)=>{
               roomEvent.emit("message",msg)
@@ -354,7 +359,11 @@ import { roomEvent,Room } from './room.js';
           server.addEventListener("close",(ev)=>{
               setTimeout(()=>{
               roomEvent.emit("on_close",{ws:server})
-              },20)
+              },10)
+            })
+             //error
+             server.addEventListener("error",(ev)=>{
+              setTimeout(()=>roomEvent.emit("on_error",ev))
             })
         
 
@@ -453,8 +462,8 @@ import { roomEvent,Room } from './room.js';
   /**
    * 
    * @param {string | function} base - route path or a function.
-   * @param  {function} fns -function handlers for middleware.
-   * @returns {object}
+   * @param  {Function} fns -function handlers for middleware.
+   * 
    */
   use(base, ...fns) {
     if (typeof base === 'function') {
@@ -647,14 +656,20 @@ import { roomEvent,Room } from './room.js';
     open(ws) {
     setTimeout(()=>{
       roomEvent.emit("ws",{ws})
-    },20)
+    },1)
     
     },
     close(ws, code, message) {
       setTimeout(()=>{
       roomEvent.emit("on_close",ws)
-      },20)
+      },2)
     }, // a socket is closed
+    error(ws,code,message){
+    //error
+  
+      setTimeout(()=>roomEvent.emit("on_error",message))
+  
+    }
  
 
 }
@@ -664,9 +679,7 @@ import { roomEvent,Room } from './room.js';
  */
 onWebsocket(cb){
   if(!cb || typeof cb !== "function")throw new  Error("cb required")
-     roomEvent.on("on_ws",(ws)=>{
-    cb(ws)
-    })    
+     roomEvent.on("on_ws",cb)    
 }
 /**
  * listener for incoming request;

@@ -1,5 +1,7 @@
 import EdgeResponse from "./response.js";
 export async function LoadGlobalWares(instance,request){
+   request.params = Object.fromEntries(new URL(request.url).searchParams);
+        
   let wares=instance.wares;
   let l =wares.length;
   let i =0;

@@ -97,7 +97,7 @@ function cls(app, num) {
 <script src="https://cdn.tailwindcss.com"></script>
 <script type="module" >
   const socket = new WebSocket("ws://localhost:3000/bb?ab=hi4"); 
-console.log(socket)
+console.log(socket) 
 socket.addEventListener("message", event => {  
   console.log(event.data);
 })    
@@ -108,6 +108,7 @@ socket.send(3333)
 }); 
 </script>   
 `  
+
 app.get("/users",async (req: any,res: any)=>{   
      const re = new EdgeResponse();
 
@@ -194,17 +195,34 @@ app.get("/users",async (req: any,res: any)=>{
 app.port=3000     
 
 
- let r2 = new app.Room("/bb");   
- r2.onConnected((socket)=>{
-   console.log(socket,"conn",r2.params)
- })  
+const Chatroom = new app.Room("/bb")//room name or path required
 
- r2.emit("welcome",{msg:"m"},(socket)=>{  
-   console.log(socket)
- })   
- r2.on("welcome",(da)=>{
-  console.log(da.data)
- })   
+ Chatroom.onConnected((so)=>{
+
+
+  Chatroom.on("welcome",(res)=>{
+    console.log(res,"e")//if sent successfully
+  })   
+  
+ 
+Chatroom.broadcastTo(so.id,"hi",{msg:"hi ev"},(res)=>{
+  //console.log(res,"e")//if sent successfully
+})     
+    
+ })
+ Chatroom.on("welcome",(res)=>{
+  console.log(res.data,"da")//if sent successfully
+  res.broadcastTo(Chatroom.id,"hi",{msg:"hi ev3"},(res)=>{
+    //console.log(res,"e")//if sent successfully
+  })  
+})  
+ Chatroom.onError((ws)=>{
+  console.log(ws)   
+ })
+Chatroom.onDisconnected((socket)=>{//runs when client disconnects
+ //console.log(`user disconnected`, socket)
+}) 
+
 
  
 export default app 

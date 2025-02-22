@@ -1,8 +1,7 @@
 /*! MIT © Luke Edwards https://github.com/lukeed/sirv/blob/master/packages/sirv/index.js */
-import { existsSync, statSync, Stats,createReadStream,openSync,readFileSync } from "node:fs";
-import { join, normalize, resolve } from "node:path";
+import { existsSync, statSync,readFileSync } from "node:fs";
+import { join, normalize} from "node:path";
 import { mimes, lookup as getExt } from "mrmime";
-import { totalist } from "totalist/sync";
 import exmimes from "./mime.js";
 
 // function isMatch(uri, arr) {
@@ -101,18 +100,16 @@ export async function send(req, data) {
        
   const num_blocks = 100;
   const block_size = 16_384;
-  const chunk_size = block_size * num_blocks;
   const file = await Deno.open(data.abs, { read: true });
   if (opts.start > 0) {
     await file.seek(opts.start, Deno.SeekMode.Start);
   }
 
   let read_blocks = num_blocks; 
-  let read_bytes = 0;
 
   const stream = new ReadableStream({
     start(){
-     
+     //todo
     },
     async pull(controller) {
       const chunk = new Uint8Array(block_size);
@@ -121,7 +118,7 @@ export async function send(req, data) {
      
         if (read !== null && read > 0) {
           controller.enqueue(chunk.subarray(0, read));
-          read_bytes += read;
+        
         }
 
         read_blocks--;
