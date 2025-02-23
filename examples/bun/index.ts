@@ -216,9 +216,7 @@ Chatroom.broadcastTo(so.id,"hi",{msg:"hi ev"},(res)=>{
     //console.log(res,"e")//if sent successfully
   })  
 })  
- Chatroom.onError((ws)=>{
-  console.log(ws)   
- })
+
 Chatroom.onDisconnected((socket)=>{//runs when client disconnects
  //console.log(`user disconnected`, socket)
 }) 

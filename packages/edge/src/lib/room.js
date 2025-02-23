@@ -85,13 +85,7 @@ export class Room{
        
       
     })
-    //error
-    roomEvent.on("on_error",async (ws)=>{
-   
-      
-      roomEvent.emit("error",ws)
   
-   })
   
     this.#init();
     return this
@@ -151,8 +145,7 @@ export class Room{
     emit(event,data,cb){
         if(!event || typeof event !== "string" || event.length === 0 || !data || !cb || typeof cb !== "function")throw new  Error("valid options required")
         
-          //roomEvent.on("on_ws",async (ws)=>{
-             
+    
           if(checktype(data) === checktype({})){
           if(this.ws && this.ws.readyState === 1){
             this.ws.send(JSON.stringify(data));
@@ -359,14 +352,7 @@ export class Room{
      onDisconnected(cb){
       if(!cb || typeof cb !== "function")throw new Error("onDisconnected cb required");
       roomEvent.on("closed",cb)
-    }
-     /**
-     * error event.
-     * @param {Function} cb 
-     */
-     onError(cb){
-      if(!cb || typeof cb !== "function")throw new Error("onError cb required");
-      roomEvent.on("error",cb)
-    }
+    } 
+   
 }
 

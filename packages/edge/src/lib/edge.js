@@ -307,15 +307,9 @@ import { roomEvent,Room } from './room.js';
           roomEvent.emit("req",re) 
          
               //open
-      
-              socket.onopen=()=>{
                 setTimeout(()=>{
                   roomEvent.emit("ws",{ws:socket})
                 },10)
-              }
-              
-             
-            
               //message
               socket.addEventListener("message",(msg)=>{
                 roomEvent.emit("message",msg)
@@ -393,7 +387,6 @@ import { roomEvent,Room } from './room.js';
     
          
          } catch (error) {
-          console.log(error)
           return this.onError(error,req,res)
          }
       
@@ -664,12 +657,7 @@ import { roomEvent,Room } from './room.js';
       roomEvent.emit("on_close",ws)
       },2)
     }, // a socket is closed
-    error(ws,code,message){
-    //error
-  
-      setTimeout(()=>roomEvent.emit("on_error",message))
-  
-    }
+   
  
 
 }
